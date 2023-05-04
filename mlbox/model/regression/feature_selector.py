@@ -71,8 +71,7 @@ class Reg_feature_selector():
         """
 
         # sanity checks
-        if((type(df_train) != pd.SparseDataFrame) and
-           (type(df_train) != pd.DataFrame)):
+        if type(df_train) not in [pd.SparseDataFrame, pd.DataFrame]:
             raise ValueError("df_train must be a DataFrame")
 
         if (type(y_train) != pd.core.series.Series):

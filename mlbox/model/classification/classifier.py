@@ -43,11 +43,7 @@ class Classifier():
             "Tree", "Bagging", "AdaBoost" or "Linear"}.
 
         """
-        if ("strategy" in params):
-            self.__strategy = params["strategy"]
-        else:
-            self.__strategy = "LightGBM"
-
+        self.__strategy = params.get("strategy", "LightGBM")
         self.__classif_params = {}
 
         self.__classifier = None
@@ -59,9 +55,8 @@ class Classifier():
 
     def get_params(self, deep=True):
         """Get strategy parameters of Classifier object."""
-        params = {}
-        params["strategy"] = self.__strategy
-        params.update(self.__classif_params)
+        params = {"strategy": self.__strategy}
+        params |= self.__classif_params
 
         return params
 
@@ -69,7 +64,7 @@ class Classifier():
         """Set strategy parameters of Classifier object."""
         self.__fitOK = False
 
-        if 'strategy' in params.keys():
+        if 'strategy' in params:
             self.__set_classifier(params['strategy'])
 
             for k, v in self.__classif_params.items():
@@ -83,15 +78,11 @@ class Classifier():
                     setattr(self.__classifier, k, v)
 
         for k, v in params.items():
-            if(k == "strategy"):
-                pass
-            else:
+            if k != "strategy":
                 if k not in self.__classifier.get_params().keys():
-                    warnings.warn("Invalid parameter for classifier "
-                                  + str(self.__strategy)
-                                  + ". Parameter IGNORED. Check the list of "
-                                  "available parameters with "
-                                  "`classifier.get_params().keys()`")
+                    warnings.warn(
+                        f"Invalid parameter for classifier {str(self.__strategy)}. Parameter IGNORED. Check the list of available parameters with `classifier.get_params().keys()`"
+                    )
                 else:
                     setattr(self.__classifier, k, v)
                     self.__classif_params[k] = v
@@ -165,8 +156,7 @@ class Classifier():
 
         """
         # sanity checks
-        if((type(df_train) != pd.SparseDataFrame)
-           and (type(df_train) != pd.DataFrame)):
+        if type(df_train) not in [pd.SparseDataFrame, pd.DataFrame]:
             raise ValueError("df_train must be a DataFrame")
 
         if (type(y_train) != pd.core.series.Series):
@@ -190,79 +180,69 @@ class Classifier():
             each feature (key).
 
         """
-        if self.__fitOK:
+        if not self.__fitOK:
+            raise ValueError("You must call the fit function before !")
+        importance = {}
+        if (self.get_params()["strategy"] in ["Linear"]):
 
-            if (self.get_params()["strategy"] in ["Linear"]):
+            f = np.mean(np.abs(self.get_estimator().coef_), axis=0)
 
-                importance = {}
-                f = np.mean(np.abs(self.get_estimator().coef_), axis=0)
+            for i, col in enumerate(self.__col):
+                importance[col] = f[i]
 
-                for i, col in enumerate(self.__col):
-                    importance[col] = f[i]
-
-            elif (self.get_params()["strategy"] in ["LightGBM", "RandomForest",
+        elif (self.get_params()["strategy"] in ["LightGBM", "RandomForest",
                                                     "ExtraTrees", "Tree"]):
 
-                importance = {}
-                f = self.get_estimator().feature_importances_
+            f = self.get_estimator().feature_importances_
 
-                for i, col in enumerate(self.__col):
-                    importance[col] = f[i]
+            for i, col in enumerate(self.__col):
+                importance[col] = f[i]
 
-            elif(self.get_params()["strategy"] in ["AdaBoost"]):
+        elif (self.get_params()["strategy"] in ["AdaBoost"]):
 
-                importance = {}
-                norm = self.get_estimator().estimator_weights_.sum()
+            norm = self.get_estimator().estimator_weights_.sum()
+
+            try:
+                # LGB, RF, ET, Tree and AdaBoost
+                f = sum(weight * est.feature_importances_
+                    for weight, est in zip(self.get_estimator().estimator_weights_, self.get_estimator().estimators_)) / norm  # noqa
+
+            except:  # noqa
+                # Linear
+                f = sum(weight * np.mean(np.abs(est.coef_), axis=0)
+                    for weight, est in zip(self.get_estimator().estimator_weights_, self.get_estimator().estimators_)) / norm  # noqa
+
+            for i, col in enumerate(self.__col):
+                importance[col] = f[i]
+
+        elif (self.get_params()["strategy"] in ["Bagging"]):
+
+            importance_bag = []
+
+            for i, b in enumerate(self.get_estimator().estimators_):
 
                 try:
                     # LGB, RF, ET, Tree and AdaBoost
-                    f = sum(weight * est.feature_importances_
-                        for weight, est in zip(self.get_estimator().estimator_weights_, self.get_estimator().estimators_)) / norm  # noqa
-
+                    f = b.feature_importances_
                 except:  # noqa
                     # Linear
-                    f = sum(weight * np.mean(np.abs(est.coef_), axis=0)
-                        for weight, est in zip(self.get_estimator().estimator_weights_, self.get_estimator().estimators_)) / norm  # noqa
+                    f = np.mean(np.abs(b.coef_), axis=0)
 
-                for i, col in enumerate(self.__col):
-                    importance[col] = f[i]
+                d = {
+                    self.__col[c]: f[j]
+                    for j, c in enumerate(
+                        self.get_estimator().estimators_features_[i]
+                    )
+                }
+                importance_bag.append(d.copy())
 
-            elif (self.get_params()["strategy"] in ["Bagging"]):
+            for col in self.__col:
+                list_filtered = filter(lambda x: x != 0,
+                                       [k[col] if col in k
+                                        else 0 for k in importance_bag])
+                importance[col] = np.mean(list(list_filtered))  # noqa
 
-                importance = {}
-                importance_bag = []
-
-                for i, b in enumerate(self.get_estimator().estimators_):
-
-                    d = {}
-
-                    try:
-                        # LGB, RF, ET, Tree and AdaBoost
-                        f = b.feature_importances_
-                    except:  # noqa
-                        # Linear
-                        f = np.mean(np.abs(b.coef_), axis=0)
-
-                    for j, c in enumerate(self.get_estimator().estimators_features_[i]):  # noqa
-                        d[self.__col[c]] = f[j]
-
-                    importance_bag.append(d.copy())
-
-                for i, col in enumerate(self.__col):
-                    list_filtered = filter(lambda x: x != 0,
-                                           [k[col] if col in k
-                                            else 0 for k in importance_bag])
-                    importance[col] = np.mean(list(list_filtered))  # noqa
-
-            else:
-
-                importance = {}
-
-            return importance
-
-        else:
-
-            raise ValueError("You must call the fit function before !")
+        return importance
 
     def predict(self, df):
         """Predicts the target.
@@ -287,8 +267,7 @@ class Classifier():
         if self.__fitOK:
 
             # sanity checks
-            if((type(df) != pd.SparseDataFrame) and
-               (type(df) != pd.DataFrame)):
+            if type(df) not in [pd.SparseDataFrame, pd.DataFrame]:
                 raise ValueError("df must be a DataFrame")
 
             return self.__classifier.predict(df.values)
@@ -319,8 +298,7 @@ class Classifier():
         if self.__fitOK:
 
             # sanity checks
-            if((type(df) != pd.SparseDataFrame) and
-               (type(df) != pd.DataFrame)):
+            if type(df) not in [pd.SparseDataFrame, pd.DataFrame]:
                 raise ValueError("df must be a DataFrame")
 
             return self.__classifier.predict_log_proba(df.values)
@@ -350,8 +328,7 @@ class Classifier():
         if self.__fitOK:
 
             # sanity checks
-            if((type(df) != pd.SparseDataFrame)
-               and (type(df) != pd.DataFrame)):
+            if type(df) not in [pd.SparseDataFrame, pd.DataFrame]:
                 raise ValueError("df must be a DataFrame")
 
             return self.__classifier.predict_proba(df.values)
@@ -384,8 +361,7 @@ class Classifier():
         if self.__fitOK:
 
             # sanity checks
-            if((type(df) != pd.SparseDataFrame) and
-               (type(df) != pd.DataFrame)):
+            if type(df) not in [pd.SparseDataFrame, pd.DataFrame]:
                 raise ValueError("df must be a DataFrame")
 
             if(type(y) != pd.core.series.Series):

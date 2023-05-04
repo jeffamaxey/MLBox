@@ -18,7 +18,7 @@ def test_init_NA_encoder():
     assert encoder._NA_encoder__Lcat == []
     assert encoder._NA_encoder__Lnum == []
     assert not encoder._NA_encoder__imp
-    assert encoder._NA_encoder__mode == dict()
+    assert encoder._NA_encoder__mode == {}
     assert not encoder._NA_encoder__fitOK
 
 

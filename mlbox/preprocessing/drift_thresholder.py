@@ -109,8 +109,8 @@ class Drift_thresholder():
 
             ds.fit(pp.transform(df['train']), pp.transform(df['test']))
 
-            if (self.verbose):
-                print("CPU time: %s seconds" % (time.time() - start_time))
+            if self.verbose:
+                print(f"CPU time: {time.time() - start_time} seconds")
                 print("")
 
             self.__fitOK = True
@@ -125,10 +125,9 @@ class Drift_thresholder():
                 for d in range(len(drifts_top)):
                     print(drifts_top[d])
 
-            if (self.verbose):
+            if self.verbose:
                 print("")
-                print("> Deleted "
-                      "variables : " + str(ds.get_support(complement=True)))
+                print(f"> Deleted variables : {str(ds.get_support(complement=True))}")
 
             ######################################################
             #           Dumping Encoders into directory
@@ -141,36 +140,28 @@ class Drift_thresholder():
                 except OSError:
                     pass
 
-                file = open(self.to_path + '/drifts.txt', "w")
-                file.write("\n")
-                file.write(
-                    "*******************************************"
-                    "  Drifts coefficients "
-                    "*******************************************\n")
-                file.write("\n")
+                with open(f'{self.to_path}/drifts.txt', "w") as file:
+                    file.write("\n")
+                    file.write(
+                        "*******************************************"
+                        "  Drifts coefficients "
+                        "*******************************************\n")
+                    file.write("\n")
 
-                for var, d in sorted(ds.drifts().items(),
+                    for var, d in sorted(ds.drifts().items(),
                                      key=lambda x: x[1],
                                      reverse=True):
-                    file.write(str(var) + " = " + str(d) + '\n')
+                        file.write(f"{str(var)} = {str(d)}" + '\n')
 
-                file.close()
+                if self.verbose:
+                    print(f"> Drift coefficients dumped into directory : {self.to_path}")
 
-                if (self.verbose):
-                    print("> Drift coefficients dumped into directory : " + self.to_path)
-
-            # Returning datasets with no IDs
-
-            if (self.inplace):
-
-                df['train'] = ds.transform(df['train'])
-                df['test'] = ds.transform(df['test'])
-
-            else:
-
+            if not self.inplace:
                 return {'train': ds.transform(df['train']),
                         'test': ds.transform(df['test']),
                         'target': df['target']}
+            df['train'] = ds.transform(df['train'])
+            df['test'] = ds.transform(df['test'])
 
     def drifts(self):
 

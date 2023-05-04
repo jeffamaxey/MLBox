@@ -76,8 +76,7 @@ class Clf_feature_selector():
         """
 
         # sanity checks
-        if((type(df_train) != pd.SparseDataFrame) and
-           (type(df_train) != pd.DataFrame)):
+        if type(df_train) not in [pd.SparseDataFrame, pd.DataFrame]:
             raise ValueError("df_train must be a DataFrame")
 
         if (type(y_train) != pd.core.series.Series):
@@ -129,11 +128,10 @@ class Clf_feature_selector():
             The train dataset with relevant features
         """
 
-        if(self.__fitOK):
+        if self.__fitOK:
 
             # sanity checks
-            if((type(df) != pd.SparseDataFrame) and
-               (type(df) != pd.DataFrame)):
+            if type(df) not in [pd.SparseDataFrame, pd.DataFrame]:
                 raise ValueError("df must be a DataFrame")
 
             return df.drop(self.__to_discard, axis=1)

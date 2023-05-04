@@ -103,7 +103,7 @@ class DriftThreshold():
         self.stratify = stratify
         self.random_state = random_state
         self.n_jobs = n_jobs
-        self.__Ddrifts = dict()
+        self.__Ddrifts = {}
         self.__fitOK = False
 
     def get_params(self):
@@ -118,19 +118,19 @@ class DriftThreshold():
 
     def set_params(self, **params):
         """Set parameters of a DriftThreshold object."""
-        if('threshold' in params.keys()):
+        if 'threshold' in params:
             self.threshold = params['threshold']
-        if('subsample' in params.keys()):
+        if 'subsample' in params:
             self.subsample = params['subsample']
-        if('estimator' in params.keys()):
+        if 'estimator' in params:
             self.estimator = params['estimator']
-        if('n_folds' in params.keys()):
+        if 'n_folds' in params:
             self.n_folds = params['n_folds']
-        if('stratify' in params.keys()):
+        if 'stratify' in params:
             self.stratify = params['stratify']
-        if('random_state' in params.keys()):
+        if 'random_state' in params:
             self.random_state = params['random_state']
-        if('n_jobs' in params.keys()):
+        if 'n_jobs' in params:
             self.n_jobs = params['n_jobs']
 
     def fit(self, df_train, df_test):
@@ -149,7 +149,7 @@ class DriftThreshold():
         None
 
         """
-        self.__Ddrifts = dict()
+        self.__Ddrifts = {}
 
         if sys.platform == 'win32':
             Ldrifts = [sync_fit(df_train.sample(frac=self.subsample)[[col]],
@@ -193,13 +193,9 @@ class DriftThreshold():
         """
         if self.__fitOK:
 
-            selected_col = []
-
-            for i, col in enumerate(df.columns):
-
-                if (self.__Ddrifts[col] < self.threshold):
-                    selected_col.append(col)
-
+            selected_col = [
+                col for col in df.columns if (self.__Ddrifts[col] < self.threshold)
+            ]
             return df[selected_col]
 
         else:
@@ -220,24 +216,19 @@ class DriftThreshold():
             The list of features to keep or to drop.
 
         """
-        if self.__fitOK:
-
-            keepList = []
-            dropList = []
-
-            for col in self.__Ddrifts:
-
-                if (self.__Ddrifts[col] < self.threshold):
-                    keepList.append(col)
-                else:
-                    dropList.append(col)
-
-            if complement:
-                return dropList
-            else:
-                return keepList
-        else:
+        if not self.__fitOK:
             raise ValueError('Call the fit function before !')
+        keepList = []
+        dropList = []
+
+        for col in self.__Ddrifts:
+
+            if (self.__Ddrifts[col] < self.threshold):
+                keepList.append(col)
+            else:
+                dropList.append(col)
+
+        return dropList if complement else keepList
 
     def drifts(self):
         """Return the univariate drifts for all variables.

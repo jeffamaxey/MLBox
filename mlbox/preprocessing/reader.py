@@ -105,44 +105,41 @@ def convert_float_and_dates(serie):
         except:
             pass
 
-        # Cleaning/converting dates
-
-        if (serie.dtype != 'object'):
+        if serie.dtype != 'object':
             return serie
 
-        else:
-            # trying to cast into date
-            df = pandas.DataFrame([], index=serie.index)
+        # trying to cast into date
+        df = pandas.DataFrame([], index=serie.index)
 
-            try:
+        try:
 
-                serie_to_df = pandas.DatetimeIndex(pd.to_datetime(serie))
+            serie_to_df = pandas.DatetimeIndex(pd.to_datetime(serie))
 
-                df[serie.name + "_TIMESTAMP"] = (serie_to_df -
-                                                 pandas.datetime(2017, 1, 1)
-                                                 ).total_seconds()
+            df[serie.name + "_TIMESTAMP"] = (serie_to_df -
+                                             pandas.datetime(2017, 1, 1)
+                                             ).total_seconds()
 
-                df[serie.name + "_YEAR"] = serie_to_df.year.astype(
-                    float)  # TODO: be careful with nan ! object or float??
+            df[serie.name + "_YEAR"] = serie_to_df.year.astype(
+                float)  # TODO: be careful with nan ! object or float??
 
-                df[serie.name + "_MONTH"] = serie_to_df.month.astype(
-                    float)  # TODO: be careful with nan ! object or float??
+            df[serie.name + "_MONTH"] = serie_to_df.month.astype(
+                float)  # TODO: be careful with nan ! object or float??
 
-                df[serie.name + "_DAY"] = serie_to_df.day.astype(
-                    float)  # TODO: be careful with nan ! object or float??
+            df[serie.name + "_DAY"] = serie_to_df.day.astype(
+                float)  # TODO: be careful with nan ! object or float??
 
-                df[serie.name + "_DAYOFWEEK"] = serie_to_df.dayofweek.astype(
-                    float)  # TODO: be careful with nan ! object or float??
+            df[serie.name + "_DAYOFWEEK"] = serie_to_df.dayofweek.astype(
+                float)  # TODO: be careful with nan ! object or float??
 
-                df[serie.name + "_HOUR"] = serie_to_df.hour.astype(float) + \
-                                           serie_to_df.minute.astype(float)/60. + \
-                                           serie_to_df.second.astype(float) / 3600.
+            df[serie.name + "_HOUR"] = serie_to_df.hour.astype(float) + \
+                                       serie_to_df.minute.astype(float)/60. + \
+                                       serie_to_df.second.astype(float) / 3600.
 
-                return df
+            return df
 
-            except:
+        except:
 
-                return serie
+            return serie
 
 
 class Reader():
@@ -213,56 +210,52 @@ class Reader():
         start_time = time.time()
 
         if (path is None):
-
             raise ValueError("You must specify the path to load the data")
+
+        type_doc = path.split(".")[-1]
+
+        if (type_doc == 'csv'):
+
+            if (self.sep is None):
+                raise ValueError("You must specify the separator "
+                                 "for a csv file")
+            if (self.verbose):
+                print("")
+                print("reading csv : " + path.split("/")[-1] + " ...")
+            df = pd.read_csv(path,
+                             sep=self.sep,
+                             header=self.header,
+                             engine='c',
+                             error_bad_lines=False)
+
+        elif (type_doc == 'xls'):
+
+            if (self.verbose):
+                print("")
+                print("reading xls : " + path.split("/")[-1] + " ...")
+            df = pd.read_excel(path, header=self.header)
+
+        elif (type_doc == 'h5'):
+            if (sys.platform == "win32" and sys.version_info[0] <=3 and sys.version_info[1] <=5):
+                raise ValueError("h5 format not supported for python under 3.6 on windows. Please upgrade python")
+            if (self.verbose):
+                print("")
+                print("reading hdf5 : " + path.split("/")[-1] + " ...")
+
+            df = pd.read_hdf(path)
+
+        elif (type_doc == 'json'):
+            if (sys.platform == "win32" and sys.version_info[0] <=3 and sys.version_info[1] <=5):
+                raise ValueError("json format not supported for python under 3.6 on windows. Please upgrade python")
+            if (self.verbose):
+                print("")
+                print("reading json : " + path.split("/")[-1] + " ...")
+
+            df = pd.read_json(path)
 
         else:
 
-            type_doc = path.split(".")[-1]
-
-            if (type_doc == 'csv'):
-
-                if (self.sep is None):
-                    raise ValueError("You must specify the separator "
-                                     "for a csv file")
-                else:
-                    if (self.verbose):
-                        print("")
-                        print("reading csv : " + path.split("/")[-1] + " ...")
-                    df = pd.read_csv(path,
-                                     sep=self.sep,
-                                     header=self.header,
-                                     engine='c',
-                                     error_bad_lines=False)
-
-            elif (type_doc == 'xls'):
-
-                if (self.verbose):
-                    print("")
-                    print("reading xls : " + path.split("/")[-1] + " ...")
-                df = pd.read_excel(path, header=self.header)
-
-            elif (type_doc == 'h5'):
-                if (sys.platform == "win32" and sys.version_info[0] <=3 and sys.version_info[1] <=5):
-                    raise ValueError("h5 format not supported for python under 3.6 on windows. Please upgrade python")
-                if (self.verbose):
-                    print("")
-                    print("reading hdf5 : " + path.split("/")[-1] + " ...")
-
-                df = pd.read_hdf(path)
-
-            elif (type_doc == 'json'):
-                if (sys.platform == "win32" and sys.version_info[0] <=3 and sys.version_info[1] <=5):
-                    raise ValueError("json format not supported for python under 3.6 on windows. Please upgrade python")
-                if (self.verbose):
-                    print("")
-                    print("reading json : " + path.split("/")[-1] + " ...")
-
-                df = pd.read_json(path)
-
-            else:
-
-                raise ValueError("The document extension cannot be handled")
+            raise ValueError("The document extension cannot be handled")
 
         # Deleting unknown column
 
@@ -290,15 +283,12 @@ class Reader():
 
         # Drop duplicates
 
-        if (drop_duplicate):
+        if drop_duplicate:
             if (self.verbose):
                 print("dropping duplicates")
             df = df.drop_duplicates()
-        else:
-            pass
-
-        if (self.verbose):
-            print("CPU time: %s seconds" % (time.time() - start_time))
+        if self.verbose:
+            print(f"CPU time: {time.time() - start_time} seconds")
 
         return df
 

@@ -54,11 +54,10 @@ class StackingClassifier():
                  verbose=True):
 
         self.base_estimators = base_estimators
-        if(type(self.base_estimators) != list):
+        if type(self.base_estimators) != list:
             raise ValueError("base_estimators must be a list")
-        else:
-            for i, est in enumerate(self.base_estimators):
-                self.base_estimators[i] = make_copy(est)
+        for i, est in enumerate(self.base_estimators):
+            self.base_estimators[i] = make_copy(est)
 
         self.level_estimator = level_estimator
 
@@ -187,7 +186,7 @@ class StackingClassifier():
         # noqa
 
         # sanity checks
-        if((type(df_train) != pd.SparseDataFrame) and (type(df_train) != pd.DataFrame)):
+        if type(df_train) not in [pd.SparseDataFrame, pd.DataFrame]:
             raise ValueError("df_train must be a DataFrame")
 
         if(type(y_train) != pd.core.series.Series):
@@ -212,35 +211,29 @@ class StackingClassifier():
 
         for c, clf in enumerate(self.base_estimators):
 
-            if(self.verbose):
-                print("> fitting estimator n°" + str(c+1) + " : " +
-                      str(clf.get_params()) + " ...")
+            if self.verbose:
+                print(f"> fitting estimator n°{str(c + 1)} : {str(clf.get_params())} ...")
                 print("")
 
             # for each base estimator, we create the meta feature on train set
             y_pred = self.__cross_val_predict_proba(clf, df_train, y_train, cv)
             for i in range(0, y_pred.shape[1] - int(self.drop_first)):
-                preds["est" + str(c+1) + "_class" + str(i)] = y_pred[:, i]
+                preds[f"est{str(c + 1)}_class{str(i)}"] = y_pred[:, i]
 
             # and we refit the base estimator on entire train set
             clf.fit(df_train.drop(indexes_to_drop), y_train.drop(indexes_to_drop))
 
         layer = 1
-        columns = ["layer" + str(layer) + "_" + s for s in preds.columns]
-        while(len(np.intersect1d(df_train.columns, columns)) > 0):
+        columns = [f"layer{layer}_" + s for s in preds.columns]
+        while (len(np.intersect1d(df_train.columns, columns)) > 0):
             layer = layer + 1
-            columns = ["layer" + str(layer) + "_" + s for s in preds.columns]
+            columns = [f"layer{str(layer)}_" + s for s in preds.columns]
 
-        preds.columns = ["layer" + str(layer) + "_" + s for s in preds.columns]
+        preds.columns = [f"layer{str(layer)}_" + s for s in preds.columns]
 
         self.__fittransformOK = True
 
-        if(self.copy):
-            # we keep also the initial features
-            return pd.concat([df_train, preds], axis=1)
-        else:
-            # we keep only the meta features
-            return preds
+        return pd.concat([df_train, preds], axis=1) if self.copy else preds
 
 
     def transform(self, df_test):
@@ -259,43 +252,31 @@ class StackingClassifier():
         """
 
         # sanity checks
-        if((type(df_test) != pd.SparseDataFrame) and
-           (type(df_test) != pd.DataFrame)):
+        if type(df_test) not in [pd.SparseDataFrame, pd.DataFrame]:
             raise ValueError("df_test must be a DataFrame")
 
-        if(self.__fittransformOK):
-
-            preds_test = pd.DataFrame([], index=df_test.index)
+        if not self.__fittransformOK:
+            raise ValueError("Call fit_transform before !")
+        preds_test = pd.DataFrame([], index=df_test.index)
 
             # for each base estimator, we predict the meta feature on test set
-            for c, clf in enumerate(self.base_estimators):
-                y_pred_test = clf.predict_proba(df_test)
+        for c, clf in enumerate(self.base_estimators):
+            y_pred_test = clf.predict_proba(df_test)
 
-                for i in range(0, y_pred_test.shape[1] - int(self.drop_first)):
-                    idx_name = "est" + str(c+1) + "_class" + str(i)
-                    preds_test[idx_name] = y_pred_test[:, i]
+            for i in range(0, y_pred_test.shape[1] - int(self.drop_first)):
+                idx_name = f"est{str(c + 1)}_class{str(i)}"
+                preds_test[idx_name] = y_pred_test[:, i]
 
-            layer = 1
-            columns = ["layer" + str(layer) + "_" + s
-                       for s in preds_test.columns]
+        layer = 1
+        columns = [f"layer{layer}_" + s for s in preds_test.columns]
 
-            while(len(np.intersect1d(df_test.columns, columns)) > 0):
-                layer = layer + 1
-                columns = ["layer" + str(layer) + "_" + s
-                           for s in preds_test.columns]
+        while (len(np.intersect1d(df_test.columns, columns)) > 0):
+            layer = layer + 1
+            columns = [f"layer{str(layer)}_" + s for s in preds_test.columns]
 
-            preds_test.columns = ["layer" + str(layer) + "_" + s
-                                  for s in preds_test.columns]
+        preds_test.columns = [f"layer{str(layer)}_" + s for s in preds_test.columns]
 
-            if(self.copy):
-                # we keep also the initial features
-                return pd.concat([df_test, preds_test], axis=1)
-            else:
-                # we keep only the meta features
-                return preds_test
-
-        else:
-            raise ValueError("Call fit_transform before !")
+        return pd.concat([df_test, preds_test], axis=1) if self.copy else preds_test
 
 
     def fit(self, df_train, y_train):
@@ -318,14 +299,14 @@ class StackingClassifier():
 
         df_train = self.fit_transform(df_train, y_train)  # we fit the base estimators
 
-        if(self.verbose):
+        if self.verbose:
             print("")
             print("[=========================================================="
                   "===============] PREDICTION LAYER [========================"
                   "====================================================]")
             print("")
             print("> fitting estimator : ")
-            print(str(self.level_estimator.get_params()) + " ...")
+            print(f"{str(self.level_estimator.get_params())} ...")
             print("")
 
         # we fit the second level estimator

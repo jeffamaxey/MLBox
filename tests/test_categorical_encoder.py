@@ -17,8 +17,8 @@ def test_init_encoder():
     assert not (encoder.verbose)
     assert encoder._Categorical_encoder__Lcat == []
     assert encoder._Categorical_encoder__Lnum == []
-    assert encoder._Categorical_encoder__Enc == dict()
-    assert encoder._Categorical_encoder__K == dict()
+    assert encoder._Categorical_encoder__Enc == {}
+    assert encoder._Categorical_encoder__K == {}
     assert not encoder._Categorical_encoder__weights
     assert not encoder._Categorical_encoder__fitOK
 

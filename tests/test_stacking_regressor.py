@@ -15,9 +15,9 @@ from mlbox.model.regression.stacking_regressor import StackingRegressor
 def test_init_stacking_regressor():
     """Test init method of StackingRegressor class."""
     with pytest.raises(ValueError):
-        stacking_regressor = StackingRegressor(base_estimators=dict())
+        stacking_regressor = StackingRegressor(base_estimators={})
     with pytest.raises(ValueError):
-        stacking_regressor = StackingRegressor(n_folds=dict())
+        stacking_regressor = StackingRegressor(n_folds={})
     with pytest.raises(ValueError):
         stacking_regressor = StackingRegressor(copy="True")
     with pytest.raises(ValueError):

@@ -57,13 +57,13 @@ class DriftEstimator():
 
     def set_params(self, **params):
 
-        if('estimator' in params.keys()):
+        if 'estimator' in params:
             self.estimator = params['estimator']
-        if('n_folds' in params.keys()):
+        if 'n_folds' in params:
             self.n_folds = params['n_folds']
-        if('stratify' in params.keys()):
+        if 'stratify' in params:
             self.stratify = params['stratify']
-        if('random_state' in params.keys()):
+        if 'random_state' in params:
             self.random_state = params['random_state']
 
     def fit(self, df_train, df_test):
@@ -117,7 +117,7 @@ class DriftEstimator():
         return self
 
     def score(self):
-        
+
         """Returns the global drift measure between two datasets.
 
          0. = No drift. 1. = Maximal Drift
@@ -128,18 +128,18 @@ class DriftEstimator():
             The drift measure
         """
 
-        S = []
-
         if self.__fitOK:
 
             X_zeros = np.zeros(len(self.__target))
 
-            for train_index, test_index in self.__cv.split(X=X_zeros,
-                                                           y=self.__target):
-
-                S.append(roc_auc_score(self.__target.iloc[test_index],
-                                       self.__pred[test_index]))
-
+            S = [
+                roc_auc_score(
+                    self.__target.iloc[test_index], self.__pred[test_index]
+                )
+                for train_index, test_index in self.__cv.split(
+                    X=X_zeros, y=self.__target
+                )
+            ]
             return (max(np.mean(S), 1-np.mean(S))-0.5) * 2
 
         else:

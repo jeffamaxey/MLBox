@@ -46,9 +46,11 @@ def test_clean_reader():
     df_excel = reader.clean(path="data_for_tests/train.xls")
     assert np.shape(df_excel) == (891, 12)
     assert np.all(df["Name"] == df_excel["Name"])
-    if (sys.platform == "win32" and sys.version_info[0] <=3 and sys.version_info[1] <=5):
-        pass
-    else:
+    if (
+        sys.platform != "win32"
+        or sys.version_info[0] > 3
+        or sys.version_info[1] > 5
+    ):
         if sys.version_info[0] >= 3:
             df_hdf = reader.clean(path="data_for_tests/train.h5")
             assert np.shape(df_hdf) == (891, 12)
@@ -90,9 +92,7 @@ def test_train_test_split_reader():
 
 def test_convert_list_reader():
     """Test convert_list function of reader module."""
-    data_list = list()
-    data_list.append([1, 2])
-    data_list.append([3, 4])
+    data_list = [[1, 2], [3, 4]]
     index = ['a', 'b']
     serie = pd.Series(data=data_list, index=index, name="test")
     df = convert_list(serie)

@@ -121,9 +121,6 @@ class Predictor():
                               + " is probably a leak ! "
                                 "Please check and delete it...")
 
-        else:
-            pass
-
 
     def __plot_feature_importances(self, importance, top = 10):
 
@@ -143,31 +140,28 @@ class Predictor():
             None
         """
 
-        if (len(importance) > 0):
+        if len(importance) <= 0:
+            return
+        # Plot feature importances
 
-            # Plot feature importances
+        importance_sum = np.sum(list(importance.values()))
+        tuples = [(k, np.round(importance[k] * 100. / importance_sum, 2))
+                  for k in importance]
+        tuples = sorted(tuples, key=lambda x: x[1])[-top:]
+        labels, values = zip(*tuples)
+        plt.figure(figsize=(20, top * 0.3 + 1))
 
-            importance_sum = np.sum(list(importance.values()))
-            tuples = [(k, np.round(importance[k] * 100. / importance_sum, 2))
-                      for k in importance]
-            tuples = sorted(tuples, key=lambda x: x[1])[-top:]
-            labels, values = zip(*tuples)
-            plt.figure(figsize=(20, top * 0.3 + 1))
+        ylocs = np.arange(len(values))
+        plt.barh(ylocs, values, align='center')
 
-            ylocs = np.arange(len(values))
-            plt.barh(ylocs, values, align='center')
+        for x, y in zip(values, ylocs):
+            plt.text(x + 1, y, x, va='center')
 
-            for x, y in zip(values, ylocs):
-                plt.text(x + 1, y, x, va='center')
-
-            plt.yticks(ylocs, labels)
-            plt.title("Top " + str(top) + " feature importance (%)")
-            plt.grid(True)
-            plt.show()
-            plt.close()
-
-        else:
-            pass
+        plt.yticks(ylocs, labels)
+        plt.title(f"Top {str(top)} feature importance (%)")
+        plt.grid(True)
+        plt.show()
+        plt.close()
 
 
     def fit_predict(self, params, df):
@@ -208,14 +202,12 @@ class Predictor():
             self.
         """
 
-        if(self.to_path is None):
+        if (self.to_path is None):
             raise ValueError("You must specify a path to save your model "
                              "and your predictions")
 
-        else:
-
-            ne = NA_encoder()
-            ce = Categorical_encoder()
+        ne = NA_encoder()
+        ce = Categorical_encoder()
 
             ##########################################
             #    Automatically checking the task
@@ -225,273 +217,230 @@ class Predictor():
             #             Classification
             ##########################################
 
-            if (df['target'].dtype == 'int'):
+        if (df['target'].dtype == 'int'):
 
-                # Estimator
+            # Estimator
 
-                est = Classifier()
+            est = Classifier()
 
-                # Feature selection if specified
+            # Feature selection if specified
 
-                fs = None
-                if(params is not None):
-                    for p in params.keys():
-                        if(p.startswith("fs__")):
-                            fs = Clf_feature_selector()
-                        else:
-                            pass
-
-                # Stacking if specified
-
-                STCK = {}
-                if(params is not None):
-                    for p in params.keys():
-                        if(p.startswith("stck")):
-                            STCK[p.split("__")[0]] = StackingClassifier()
-                        else:
-                            pass
-
-        ##########################################
-        #               Regression
-        ##########################################
-
-            elif (df['target'].dtype == 'float'):
-
-                # Estimator
-
-                est = Regressor()
-
-                # Feature selection if specified
-
-                fs = None
-                if(params is not None):
-                    for p in params.keys():
-                        if(p.startswith("fs__")):
-                            fs = Reg_feature_selector()
-                        else:
-                            pass
-
-                # Stacking if specified
-
-                STCK = {}
-                if(params is not None):
-                    for p in params.keys():
-                        if(p.startswith("stck")):
-                            STCK[p.split("__")[0]] = StackingRegressor()
-                        else:
-                            pass
-
-            else:
-                raise ValueError("Impossible to determine the task. "
-                                 "Please check that your target is encoded.")
-
-            ##########################################
-            #          Creating the Pipeline
-            ##########################################
-
-            pipe = [("ne", ne), ("ce", ce)]
-
-            # Do we need to cache transformers?
-
-            cache = False
-
+            fs = None
             if (params is not None):
-                if("ce__strategy" in params):
-                    if(params["ce__strategy"] == "entity_embedding"):
-                        cache = True
-                    else:
-                        pass
-                else:
-                    pass
+                for p in params.keys():
+                    if (p.startswith("fs__")):
+                        fs = Clf_feature_selector()
+            # Stacking if specified
 
-            if (fs is not None):
-                if ("fs__strategy" in params):
-                    if(params["fs__strategy"] != "variance"):
-                        cache = True
-                    else:
-                        pass
-            else:
-                pass
+            STCK = {}
+            if (params is not None):
+                for p in params.keys():
+                    if (p.startswith("stck")):
+                        STCK[p.split("__")[0]] = StackingClassifier()
+        elif (df['target'].dtype == 'float'):
 
-            if (len(STCK) != 0):
-                cache = True
-            else:
-                pass
+            # Estimator
 
+            est = Regressor()
+
+            # Feature selection if specified
+
+            fs = None
+            if (params is not None):
+                for p in params.keys():
+                    if (p.startswith("fs__")):
+                        fs = Reg_feature_selector()
+            # Stacking if specified
+
+            STCK = {}
+            if (params is not None):
+                for p in params.keys():
+                    if (p.startswith("stck")):
+                        STCK[p.split("__")[0]] = StackingRegressor()
+        else:
+            raise ValueError("Impossible to determine the task. "
+                             "Please check that your target is encoded.")
+
+        ##########################################
+        #          Creating the Pipeline
+        ##########################################
+
+        pipe = [("ne", ne), ("ce", ce)]
+
+        # Do we need to cache transformers?
+
+        cache = False
+
+        if (
+            (params is not None)
+            and ("ce__strategy" in params)
+            and (params["ce__strategy"] == "entity_embedding")
+        ):
+            cache = True
+        if (
+            (fs is not None)
+            and ("fs__strategy" in params)
+            and (params["fs__strategy"] != "variance")
+        ):
+            cache = True
+        if (len(STCK) != 0):
+            cache = True
             # Pipeline creation
 
-            if (fs is not None):
-                pipe.append(("fs", fs))
-            else:
+        if (fs is not None):
+            pipe.append(("fs", fs))
+        pipe.extend((stck, STCK[stck]) for stck in np.sort(list(STCK)))
+        pipe.append(("est", est))
+
+        pp = Pipeline(pipe, memory=self.to_path) if cache else Pipeline(pipe)
+        ##########################################
+        #          Fitting the Pipeline
+        ##########################################
+
+        start_time = time.time()
+
+        # No params : default configuration
+
+        if(params is None):
+            print("")
+            print('> No parameters set. Default configuration is tested')
+            set_params = True
+
+        else:
+            try:
+                pp = pp.set_params(**params)
+                set_params = True
+            except:
+                set_params = False
+
+        if not set_params:
+            raise ValueError("Pipeline cannot be set with these parameters."
+                             " Check the name of your stages.")
+
+        try:
+            if(self.verbose):
+                print("")
+                print("fitting the pipeline ...")
+
+            pp.fit(df['train'], df['target'])
+
+            if self.verbose:
+                print(f"CPU time: {time.time() - start_time} seconds")
+
+            try:
+                os.mkdir(self.to_path)
+            except OSError:
                 pass
 
-            for stck in np.sort(list(STCK)):
-                pipe.append((stck, STCK[stck]))
+            # Feature importances
 
-            pipe.append(("est", est))
+            try:
 
-            if(cache):
-                pp = Pipeline(pipe, memory=self.to_path)
-            else:
-                pp = Pipeline(pipe)
+                importance = est.feature_importances()
+                self.__save_feature_importances(importance,
+                                                self.to_path
+                                                + "/"
+                                                + est.get_params()["strategy"]
+                                                + "_feature_importance.png")
 
-            ##########################################
-            #          Fitting the Pipeline
-            ##########################################
+                if(self.verbose):
+                    self.__plot_feature_importances(importance, 10)
+                    print("")
+                    print("> Feature importances dumped into directory : " + self.to_path)
 
-            start_time = time.time()
+            except:
+                warnings.warn("Unable to get feature importances !")
 
-            # No params : default configuration
-
-            if(params is None):
-                print("")
-                print('> No parameters set. Default configuration is tested')
-                set_params = True
-
-            else:
-                try:
-                    pp = pp.set_params(**params)
-                    set_params = True
-                except:
-                    set_params = False
-
-            if(set_params):
-
-                try:
-                    if(self.verbose):
-                        print("")
-                        print("fitting the pipeline ...")
-
-                    pp.fit(df['train'], df['target'])
-
-                    if(self.verbose):
-                        print("CPU time: %s seconds"%(time.time() - start_time))
-
-                    try:
-                        os.mkdir(self.to_path)
-                    except OSError:
-                        pass
-
-                    # Feature importances
-
-                    try:
-
-                        importance = est.feature_importances()
-                        self.__save_feature_importances(importance,
-                                                        self.to_path
-                                                        + "/"
-                                                        + est.get_params()["strategy"]
-                                                        + "_feature_importance.png")
-
-                        if(self.verbose):
-                            self.__plot_feature_importances(importance, 10)
-                            print("")
-                            print("> Feature importances dumped into directory : " + self.to_path)
-
-                    except:
-                        warnings.warn("Unable to get feature importances !")
-
-                except:
-                    raise ValueError("Pipeline cannot be fitted")
-            else:
-                raise ValueError("Pipeline cannot be set with these parameters."
-                                 " Check the name of your stages.")
-
+        except:
+            raise ValueError("Pipeline cannot be fitted")
             ##########################################
             #               Predicting
             ##########################################
 
-            if (df["test"].shape[0] == 0):
-                warnings.warn("You have no test dataset. Cannot predict !")
+        if (df["test"].shape[0] == 0):
+            warnings.warn("You have no test dataset. Cannot predict !")
 
-            else:
+        else:
 
-                start_time = time.time()
+            start_time = time.time()
 
                 ##########################################
                 #             Classification
                 ##########################################
 
-                if (df['target'].dtype == 'int'):
+            if (df['target'].dtype == 'int'):
 
-                    enc_name = "target_encoder.obj"
+                enc_name = "target_encoder.obj"
 
-                    try:
+                try:
 
-                        fhand = open(self.to_path + "/" + enc_name, 'rb')
+                    with open(self.to_path + "/" + enc_name, 'rb') as fhand:
                         enc = pickle.load(fhand)
-                        fhand.close()
+                except:
+                    raise ValueError(
+                        f"Unable to load '{enc_name}' from directory : "
+                        + self.to_path
+                    )
 
-                    except:
-                        raise ValueError("Unable to load '" + enc_name +
-                                         "' from directory : " + self.to_path)
+                try:
+                    if(self.verbose):
+                        print("")
+                        print("predicting ...")
 
-                    try:
-                        if(self.verbose):
-                            print("")
-                            print("predicting ...")
-
-                        pred = pd.DataFrame(pp.predict_proba(df['test']),
-                                            columns=enc.inverse_transform(range(len(enc.classes_))),
-                                            index=df['test'].index)
-                        pred[df['target'].name + "_predicted"] = pred.idxmax(axis=1)  # noqa
-
-                        try:
-                            pred[df['target'].name + "_predicted"] = pred[df['target'].name + "_predicted"].apply(int)  # noqa
-                        except:
-                            pass
-
-                    except:
-                        raise ValueError("Can not predict")
-
-                ##########################################
-                #               Regression
-                ##########################################
-
-                elif (df['target'].dtype == 'float'):
-
-                    pred = pd.DataFrame([],
-                                        columns=[df['target'].name + "_predicted"],
+                    pred = pd.DataFrame(pp.predict_proba(df['test']),
+                                        columns=enc.inverse_transform(range(len(enc.classes_))),
                                         index=df['test'].index)
+                    pred[df['target'].name + "_predicted"] = pred.idxmax(axis=1)  # noqa
 
                     try:
-                        if(self.verbose):
-                            print("")
-                            print("predicting...")
-
-                        pred[df['target'].name + "_predicted"] = pp.predict(df['test'])  # noqa
-
+                        pred[df['target'].name + "_predicted"] = pred[df['target'].name + "_predicted"].apply(int)  # noqa
                     except:
-                        raise ValueError("Can not predict")
+                        pass
 
-                else:
-                    pass
+                except:
+                    raise ValueError("Can not predict")
 
-                if(self.verbose):
-                    print("CPU time: %s seconds" % (time.time() - start_time))
+            elif (df['target'].dtype == 'float'):
 
-                ##########################################
-                #               Displaying
-                ##########################################
+                pred = pd.DataFrame([],
+                                    columns=[df['target'].name + "_predicted"],
+                                    index=df['test'].index)
 
-                if(self.verbose):
-                    print("")
-                    print("> Overview on predictions : ")
-                    print("")
-                    print(pred.head(10))
+                try:
+                    if(self.verbose):
+                        print("")
+                        print("predicting...")
 
-                ##########################################
-                #           Dumping predictions
-                ##########################################
+                    pred[df['target'].name + "_predicted"] = pp.predict(df['test'])  # noqa
 
-                if(self.verbose):
-                    print("")
-                    print("dumping predictions into directory : "+self.to_path + " ...")
+                except:
+                    raise ValueError("Can not predict")
 
-                pred.to_csv(self.to_path
-                            + "/"
-                            + df['target'].name
-                            + "_predictions.csv",
-                            index=True)
+            if self.verbose:
+                print(f"CPU time: {time.time() - start_time} seconds")
+
+            ##########################################
+            #               Displaying
+            ##########################################
+
+            if(self.verbose):
+                print("")
+                print("> Overview on predictions : ")
+                print("")
+                print(pred.head(10))
+
+            ##########################################
+            #           Dumping predictions
+            ##########################################
+
+            if(self.verbose):
+                print("")
+                print("dumping predictions into directory : "+self.to_path + " ...")
+
+            pred.to_csv(self.to_path
+                        + "/"
+                        + df['target'].name
+                        + "_predictions.csv",
+                        index=True)
 
         return self

@@ -52,11 +52,10 @@ class StackingRegressor():
                  copy=False, random_state=1, verbose=True):
         """Init method for StackingRegressor."""
         self.base_estimators = base_estimators
-        if(type(base_estimators) != list):
+        if type(base_estimators) != list:
             raise ValueError("base_estimators must be a list")
-        else:
-            for i, est in enumerate(self.base_estimators):
-                self.base_estimators[i] = make_copy(est)
+        for i, est in enumerate(self.base_estimators):
+            self.base_estimators[i] = make_copy(est)
 
         self.level_estimator = level_estimator
 
@@ -142,33 +141,27 @@ class StackingRegressor():
 
         for c, reg in enumerate(self.base_estimators):
 
-            if(self.verbose):
-                print("> fitting estimator n°" + str(c + 1) +
-                      " : " + str(reg.get_params()) + " ...")
+            if self.verbose:
+                print(f"> fitting estimator n°{str(c + 1)} : {str(reg.get_params())} ...")
                 print("")
 
             # for each base estimator, we create the meta feature on train set
             y_pred = cross_val_predict(estimator=reg, X=df_train, y=y_train, cv=cv)
-            preds["est" + str(c + 1)] = y_pred
+            preds[f"est{str(c + 1)}"] = y_pred
 
             # and we refit the base estimator on entire train set
             reg.fit(df_train, y_train)
 
         layer = 1
-        columns = ["layer" + str(layer) + "_" + s for s in preds.columns]
-        while(len(np.intersect1d(df_train.columns, columns)) > 0):
+        columns = [f"layer{layer}_" + s for s in preds.columns]
+        while (len(np.intersect1d(df_train.columns, columns)) > 0):
             layer = layer + 1
-            columns = ["layer" + str(layer) + "_" + s for s in preds.columns]
-        preds.columns = ["layer" + str(layer) + "_" + s for s in preds.columns]
+            columns = [f"layer{str(layer)}_" + s for s in preds.columns]
+        preds.columns = [f"layer{str(layer)}_" + s for s in preds.columns]
 
         self.__fittransformOK = True
 
-        if(self.copy):
-            # we keep also the initial features
-            return pd.concat([df_train, preds], axis=1)
-
-        else:
-            return preds  # we keep only the meta features
+        return pd.concat([df_train, preds], axis=1) if self.copy else preds
 
     def transform(self, df_test):
         """Create meta-features for the test dataset.
@@ -186,40 +179,29 @@ class StackingRegressor():
 
         """
         # sanity checks
-        if((type(df_test) != pd.SparseDataFrame) and
-           (type(df_test) != pd.DataFrame)):
+        if type(df_test) not in [pd.SparseDataFrame, pd.DataFrame]:
             raise ValueError("df_test must be a DataFrame")
 
-        if(self.__fittransformOK):
-
-            preds_test = pd.DataFrame([], index=df_test.index)
-
-            for c, reg in enumerate(self.base_estimators):
-
-                # we predict the meta feature on test set
-                y_pred_test = reg.predict(df_test)
-                preds_test["est" + str(c + 1)] = y_pred_test
-
-            layer = 1
-            columns = ["layer" + str(layer) + "_" + s
-                       for s in preds_test.columns]
-
-            while(len(np.intersect1d(df_test.columns, columns)) > 0):
-                layer = layer + 1
-                columns = ["layer" + str(layer) + "_" + s
-                           for s in preds_test.columns]
-
-            preds_test.columns = [
-                "layer" + str(layer) + "_" + s for s in preds_test.columns]
-
-            if(self.copy):
-                # we keep also the initial features
-                return pd.concat([df_test, preds_test], axis=1)
-            else:
-                return preds_test  # we keep only the meta features
-
-        else:
+        if not self.__fittransformOK:
             raise ValueError("Call fit_transform before !")
+        preds_test = pd.DataFrame([], index=df_test.index)
+
+        for c, reg in enumerate(self.base_estimators):
+
+            # we predict the meta feature on test set
+            y_pred_test = reg.predict(df_test)
+            preds_test[f"est{str(c + 1)}"] = y_pred_test
+
+        layer = 1
+        columns = [f"layer{layer}_" + s for s in preds_test.columns]
+
+        while (len(np.intersect1d(df_test.columns, columns)) > 0):
+            layer = layer + 1
+            columns = [f"layer{str(layer)}_" + s for s in preds_test.columns]
+
+        preds_test.columns = [f"layer{str(layer)}_" + s for s in preds_test.columns]
+
+        return pd.concat([df_test, preds_test], axis=1) if self.copy else preds_test
 
     def fit(self, df_train, y_train):
         """Fit the first level estimators and the second level estimator on X.

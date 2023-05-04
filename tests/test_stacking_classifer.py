@@ -15,9 +15,9 @@ from mlbox.model.classification.stacking_classifier import StackingClassifier
 def test_init_stacking_classifier():
     """Test init method of StackingClassifier class."""
     with pytest.raises(ValueError):
-        stacking_classifier = StackingClassifier(base_estimators=dict())
+        stacking_classifier = StackingClassifier(base_estimators={})
     with pytest.raises(ValueError):
-        stacking_classifier = StackingClassifier(n_folds=dict())
+        stacking_classifier = StackingClassifier(n_folds={})
     with pytest.raises(ValueError):
         stacking_classifier = StackingClassifier(copy="True")
     with pytest.raises(ValueError):
